@@ -174,32 +174,6 @@ def enlace(c: Invitado, sin_emojis: bool = False, anticache: bool = False) -> st
     return f'https://web.whatsapp.com/send?phone={c.telefono}&text={texto}'
 
 
-def enlace_sin_texto(c: Invitado) -> str:
-    """Abre el chat del contacto sin texto precargado (modo portapapeles)."""
-    return f'https://web.whatsapp.com/send?phone={c.telefono}'
-
-
-def copiar_portapapeles(texto: str) -> bool:
-    """Copia el mensaje al portapapeles en UTF-8. Soporta Wayland, X11 y macOS.
-    Devuelve True si se copió; False si no hay herramienta disponible."""
-    if os.environ.get('WAYLAND_DISPLAY') and shutil.which('wl-copy'):
-        cmd = ['wl-copy', '--type', 'text/plain;charset=utf-8']
-    elif shutil.which('xclip'):
-        cmd = ['xclip', '-selection', 'clipboard']
-    elif shutil.which('pbcopy'):  # macOS
-        cmd = ['pbcopy']
-    else:
-        print('\nNo se encontró wl-copy, xclip ni pbcopy. Instala uno de ellos:')
-        print('  sudo apt install -y wl-clipboard xclip')
-        return False
-    try:
-        subprocess.run(cmd, input=texto, text=True, check=True)
-    except (OSError, subprocess.CalledProcessError) as exc:
-        print(f'No se pudo copiar al portapapeles ({exc}).')
-        return False
-    return True
-
-
 def abrir_en_linux(url: str) -> bool:
     if not (os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY')):
         print('\nNo se detectó una sesión gráfica. Abre manualmente el siguiente enlace en un navegador con WhatsApp:')
@@ -252,10 +226,8 @@ def _pendientes(contactos: list[Invitado], con: sqlite3.Connection,
 
 
 def enviar_interactivo(pendientes: list[Invitado], con: sqlite3.Connection,
-                       sin_emojis: bool, anticache: bool, portapapeles: bool) -> None:
-    """Modo clásico: abre de uno en uno y confirma el envío de cada contacto.
-    Con portapapeles=True abre el chat vacío y copia el mensaje para que lo pegues,
-    esperes a que aparezca la tarjeta del enlace y luego envíes tú mismo."""
+                       sin_emojis: bool, anticache: bool) -> None:
+    """Modo clásico: abre de uno en uno y confirma el envío de cada contacto."""
     for indice, c in enumerate(pendientes, start=1):
         print(f'\n[{indice}/{len(pendientes)}] {c.nombre} | +{c.telefono} | {c.pais} | cupos: {c.cupos}')
         opcion = input('[Enter] Abrir mensaje | [o] omitir | [q] salir: ').strip().lower()
@@ -263,16 +235,7 @@ def enviar_interactivo(pendientes: list[Invitado], con: sqlite3.Connection,
             break
         if opcion == 'o':
             continue
-        if portapapeles:
-            if copiar_portapapeles(crear_mensaje(c, sin_emojis, anticache)):
-                abrir_en_linux(enlace_sin_texto(c))
-                print('Mensaje copiado. Pega con Ctrl+V, espera a que aparezca la tarjeta '
-                      'con la imagen y luego pulsa Enviar.')
-            else:
-                print('No se pudo copiar; omitiendo este contacto.')
-                continue
-        else:
-            abrir_en_linux(enlace(c, sin_emojis, anticache))
+        abrir_en_linux(enlace(c, sin_emojis, anticache))
         confirmacion = input('¿Pulsaste Enviar y viste el mensaje en WhatsApp? [s] sí | [n] no | [q] salir: ').strip().lower()
         if confirmacion == 's':
             confirmar_envio(con, c)
@@ -315,8 +278,7 @@ def enviar_solo_enlaces(pendientes: list[Invitado], sin_emojis: bool, anticache:
 
 def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connection,
            limite: int | None, rafaga: bool, pausa: float, marcar: bool,
-           solo_enlaces: bool, sin_emojis: bool, anticache: bool,
-           portapapeles: bool) -> int:
+           solo_enlaces: bool, sin_emojis: bool, anticache: bool) -> int:
     if errores:
         print('Corrige las incidencias antes de iniciar. Esto evita enviar a números o personas ambiguas.\n')
         resumen(contactos, errores, con)
@@ -343,7 +305,7 @@ def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connectio
     if rafaga:
         enviar_rafaga(pendientes, con, pausa, marcar, sin_emojis, anticache)
     else:
-        enviar_interactivo(pendientes, con, sin_emojis, anticache, portapapeles)
+        enviar_interactivo(pendientes, con, sin_emojis, anticache)
 
     print('\nResumen tras la sesión:')
     resumen(contactos, [], con)
@@ -376,15 +338,12 @@ def main() -> int:
     send.add_argument('--marcar', action='store_true',
                       help='En --rafaga, marca cada contacto como ENVIADO automáticamente al abrirlo')
     send.add_argument('--solo-enlaces', action='store_true',
-                      help='Solo imprime todos los enlaces, sin abrir el navegador')
+                      help='Solo imprime todos los enlaces wa.me, sin abrir el navegador')
     send.add_argument('--sin-emojis', action='store_true',
                       help='Envía el mensaje sin emojis (útil si tu navegador los muestra mal)')
     send.add_argument('--anticache', action='store_true',
                       help='Agrega un ?v=<token> único por contacto para forzar que WhatsApp '
                            'regenere la vista previa del enlace (tarjeta con imagen)')
-    send.add_argument('--portapapeles', action='store_true',
-                      help='Copia el mensaje al portapapeles y abre el chat vacío, para pegarlo '
-                           'y esperar la tarjeta del enlace antes de enviar (modo interactivo)')
     args = parser.parse_args()
     if args.accion == 'enviar':
         if args.limite is not None and args.limite <= 0:
@@ -395,9 +354,6 @@ def main() -> int:
             parser.error('--marcar solo aplica junto con --rafaga')
         if args.solo_enlaces and args.rafaga:
             parser.error('--solo-enlaces y --rafaga son mutuamente excluyentes')
-        if args.portapapeles and (args.rafaga or args.solo_enlaces):
-            parser.error('--portapapeles solo funciona en modo interactivo '
-                         '(no con --rafaga ni --solo-enlaces)')
     try:
         contactos, errores = leer_csv()
     except (FileNotFoundError, ValueError, UnicodeError, OSError) as exc:
@@ -417,7 +373,7 @@ def main() -> int:
         if args.accion == 'enviar':
             return enviar(contactos, errores, con, args.limite,
                           args.rafaga, args.pausa, args.marcar, args.solo_enlaces,
-                          args.sin_emojis, args.anticache, args.portapapeles)
+                          args.sin_emojis, args.anticache)
     return 0
 
 
