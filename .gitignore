@@ -1,0 +1,11 @@
+# Datos personales: nunca subir al repo
+*.csv
+progreso.sqlite3
+reporte_envios.csv
+
+# Excepción: el archivo de ejemplo sí se versiona (solo placeholders)
+!invitados_ejemplo.csv
+
+# Artefactos de Python
+__pycache__/
+*.pyc

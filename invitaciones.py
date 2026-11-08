@@ -130,23 +130,22 @@ def mensajes_enviados(con: sqlite3.Connection) -> set[str]:
     return {x[0] for x in con.execute('SELECT telefono FROM enviados')}
 
 
-def crear_mensaje(c: Invitado, con_cupos: bool = False) -> str:
+def crear_mensaje(c: Invitado) -> str:
     texto = (
-        f'Hola, {c.nombre}.\n\n'
-        'Estás invitado a mi fiesta:\n'
-        f'{FIESTA_URL}\n\n'
-    )
-    if con_cupos:
-        texto += f'Tu invitación contempla {c.cupos} persona(s).\n\n'
-    texto += (
-        'Nota: Confirma tu asistencia respondiendo al número desde el que recibiste este mensaje.\n\n'
-        'Tu asistencia es muy importante para nosotros.'
+        '🎉✨ *¡Tenemos una alegría muy especial que queremos compartir contigo!* ✨🎉\n\n'
+        'Con el corazón lleno de felicidad y gratitud a Dios, queremos celebrar una hermosa '
+        'bendición: *¡los 60 años de vida de nuestro querido Edvin!* 🎂❤️\n\n'
+        '*Nos llenaría de alegría contar con tu presencia* para compartir juntos este día tan '
+        'especial, lleno de sonrisas, cariño y hermosos recuerdos. 🥳\n\n'
+        '💌 *Hemos preparado esta invitación especialmente para ti:*\n\n'
+        f'🔗 {FIESTA_URL}\n\n'
+        '*¡Te esperamos con mucho cariño para celebrar juntos esta gran bendición!* ❤️🎊'
     )
     return texto
 
 
-def enlace(c: Invitado, con_cupos: bool) -> str:
-    return f'https://wa.me/{c.telefono}?text={quote(crear_mensaje(c, con_cupos), safe="")}'
+def enlace(c: Invitado) -> str:
+    return f'https://wa.me/{c.telefono}?text={quote(crear_mensaje(c), safe="")}'
 
 
 def abrir_en_linux(url: str) -> bool:
@@ -192,7 +191,7 @@ def confirmar_envio(con: sqlite3.Connection, c: Invitado) -> None:
 
 
 def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connection,
-           limite: int | None, con_cupos: bool) -> int:
+           limite: int | None) -> int:
     if errores:
         print('Corrige las incidencias antes de iniciar. Esto evita enviar a números o personas ambiguas.\n')
         resumen(contactos, errores, con)
@@ -205,7 +204,7 @@ def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connectio
     print(f'Hay {len(pendientes)} contactos pendientes. El programa NO pulsa Enviar por ti.')
     print('Primero inicia sesión en https://web.whatsapp.com/ con tu WhatsApp personal.')
     print('\nVista previa del primer mensaje:\n')
-    print(crear_mensaje(pendientes[0], con_cupos))
+    print(crear_mensaje(pendientes[0]))
     if input('\n¿Comenzar? [s/N]: ').strip().lower() != 's':
         print('Cancelado sin cambios.')
         return 0
@@ -219,7 +218,7 @@ def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connectio
             break
         if opcion == 'o':
             continue
-        abrir_en_linux(enlace(c, con_cupos))
+        abrir_en_linux(enlace(c))
         abiertos += 1
         confirmacion = input('¿Pulsaste Enviar y viste el mensaje en WhatsApp? [s] sí | [n] no | [q] salir: ').strip().lower()
         if confirmacion == 's':
@@ -253,7 +252,6 @@ def main() -> int:
     commands.add_parser('exportar', help='Crear reporte_envios.csv')
     send = commands.add_parser('enviar', help='Abrir mensajes de uno en uno y confirmar el envío')
     send.add_argument('--limite', type=int, default=None, help='Máximo de conversaciones a abrir')
-    send.add_argument('--con-cupos', action='store_true', help='Incluir cantidad de invitados en mensaje')
     args = parser.parse_args()
     if args.accion == 'enviar' and args.limite is not None and args.limite <= 0:
         parser.error('--limite debe ser un entero positivo')
@@ -274,7 +272,7 @@ def main() -> int:
             exportar(contactos, con)
             return 0
         if args.accion == 'enviar':
-            return enviar(contactos, errores, con, args.limite, args.con_cupos)
+            return enviar(contactos, errores, con, args.limite)
     return 0
 
 
