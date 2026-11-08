@@ -69,6 +69,7 @@ Opciones:
 - `--marcar`: en `--rafaga`, marca cada contacto como ENVIADO automáticamente al abrirlo.
 - `--solo-enlaces`: imprime los enlaces sin abrir el navegador (incompatible con `--rafaga`).
 - `--sin-emojis`: envía el mensaje sin emojis (conserva negritas y saltos de línea). Útil si tu navegador de WhatsApp Web en Linux muestra los emojis como un rombo; el contenido es correcto, es solo cómo lo dibuja tu pantalla, pero esta opción evita la duda. Combinable con cualquier modo.
+- `--anticache`: agrega un parámetro `?v=<token>` único por contacto a la URL de la invitación. Fuerza a que WhatsApp regenere la vista previa del enlace (la tarjeta con la foto, fecha y lugar) en lugar de reutilizar una versión cacheada que a veces sale sin imagen. La página ignora el parámetro, así que el contenido es idéntico. Combinable con cualquier modo.
 
 ### Flujo de envío recomendado
 

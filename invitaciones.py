@@ -7,6 +7,7 @@ import csv
 import re
 import shutil
 import sqlite3
+import secrets
 import subprocess
 import sys
 import time
@@ -131,7 +132,18 @@ def mensajes_enviados(con: sqlite3.Connection) -> set[str]:
     return {x[0] for x in con.execute('SELECT telefono FROM enviados')}
 
 
-def crear_mensaje(c: Invitado, sin_emojis: bool = False) -> str:
+def url_fiesta(anticache: bool = False) -> str:
+    """URL de la invitación. Con anticache agrega un ?v=<token> único para que
+    WhatsApp regenere la vista previa (tarjeta rica) sin usar su caché anterior."""
+    if not anticache:
+        return FIESTA_URL
+    token = secrets.token_hex(4)
+    separador = '&' if '?' in FIESTA_URL else '?'
+    return f'{FIESTA_URL}{separador}v={token}'
+
+
+def crear_mensaje(c: Invitado, sin_emojis: bool = False, anticache: bool = False) -> str:
+    url = url_fiesta(anticache)
     if sin_emojis:
         return (
             '*¡Tenemos una alegría muy especial que queremos compartir contigo!*\n\n'
@@ -140,7 +152,7 @@ def crear_mensaje(c: Invitado, sin_emojis: bool = False) -> str:
             '*Nos llenaría de alegría contar con tu presencia* para compartir juntos este día tan '
             'especial, lleno de sonrisas, cariño y hermosos recuerdos.\n\n'
             '*Hemos preparado esta invitación especialmente para ti:*\n\n'
-            f'{FIESTA_URL}\n\n'
+            f'{url}\n\n'
             '*¡Te esperamos con mucho cariño para celebrar juntos esta gran bendición!*'
         )
     return (
@@ -150,15 +162,15 @@ def crear_mensaje(c: Invitado, sin_emojis: bool = False) -> str:
         '*Nos llenaría de alegría contar con tu presencia* para compartir juntos este día tan '
         'especial, lleno de sonrisas, cariño y hermosos recuerdos. 🥳\n\n'
         '💌 *Hemos preparado esta invitación especialmente para ti:*\n\n'
-        f'🔗 {FIESTA_URL}\n\n'
+        f'🔗 {url}\n\n'
         '*¡Te esperamos con mucho cariño para celebrar juntos esta gran bendición!* ❤️🎊'
     )
 
 
-def enlace(c: Invitado, sin_emojis: bool = False) -> str:
+def enlace(c: Invitado, sin_emojis: bool = False, anticache: bool = False) -> str:
     # web.whatsapp.com/send va directo al chat y evita la página intermedia de wa.me
     # ("Abrir aplicación / Continuar en WhatsApp Web").
-    texto = quote(crear_mensaje(c, sin_emojis), safe='')
+    texto = quote(crear_mensaje(c, sin_emojis, anticache), safe='')
     return f'https://web.whatsapp.com/send?phone={c.telefono}&text={texto}'
 
 
@@ -214,7 +226,7 @@ def _pendientes(contactos: list[Invitado], con: sqlite3.Connection,
 
 
 def enviar_interactivo(pendientes: list[Invitado], con: sqlite3.Connection,
-                       sin_emojis: bool) -> None:
+                       sin_emojis: bool, anticache: bool) -> None:
     """Modo clásico: abre de uno en uno y confirma el envío de cada contacto."""
     for indice, c in enumerate(pendientes, start=1):
         print(f'\n[{indice}/{len(pendientes)}] {c.nombre} | +{c.telefono} | {c.pais} | cupos: {c.cupos}')
@@ -223,7 +235,7 @@ def enviar_interactivo(pendientes: list[Invitado], con: sqlite3.Connection,
             break
         if opcion == 'o':
             continue
-        abrir_en_linux(enlace(c, sin_emojis))
+        abrir_en_linux(enlace(c, sin_emojis, anticache))
         confirmacion = input('¿Pulsaste Enviar y viste el mensaje en WhatsApp? [s] sí | [n] no | [q] salir: ').strip().lower()
         if confirmacion == 's':
             confirmar_envio(con, c)
@@ -235,14 +247,14 @@ def enviar_interactivo(pendientes: list[Invitado], con: sqlite3.Connection,
 
 
 def enviar_rafaga(pendientes: list[Invitado], con: sqlite3.Connection,
-                  pausa: float, marcar: bool, sin_emojis: bool) -> None:
+                  pausa: float, marcar: bool, sin_emojis: bool, anticache: bool) -> None:
     """Abre todos los chats de corrido con una pausa entre cada uno, sin confirmar
     contacto por contacto. Tú solo pulsas Enviar en cada ventana que aparece."""
     print(f'\nModo ráfaga: se abrirán {len(pendientes)} chats con {pausa}s de separación.')
     print('Pulsa Enviar en cada ventana de WhatsApp a medida que se abren. Ctrl+C para detener.\n')
     for indice, c in enumerate(pendientes, start=1):
         print(f'[{indice}/{len(pendientes)}] Abriendo: {c.nombre} | +{c.telefono} | {c.pais}')
-        abrir_en_linux(enlace(c, sin_emojis))
+        abrir_en_linux(enlace(c, sin_emojis, anticache))
         if marcar:
             confirmar_envio(con, c)
         if indice < len(pendientes):
@@ -254,19 +266,19 @@ def enviar_rafaga(pendientes: list[Invitado], con: sqlite3.Connection,
         print('Usa --marcar si quieres registrarlos automáticamente, o confirma luego con el modo normal.')
 
 
-def enviar_solo_enlaces(pendientes: list[Invitado], sin_emojis: bool) -> None:
-    """Imprime todos los enlaces wa.me juntos para abrirlos como prefieras."""
+def enviar_solo_enlaces(pendientes: list[Invitado], sin_emojis: bool, anticache: bool) -> None:
+    """Imprime todos los enlaces de WhatsApp juntos para abrirlos como prefieras."""
     print(f'\n{len(pendientes)} enlaces (uno por línea). Ábrelos en tu navegador:\n')
     for c in pendientes:
         print(f'# {c.nombre} | +{c.telefono} | {c.pais} | cupos: {c.cupos}')
-        print(enlace(c, sin_emojis))
+        print(enlace(c, sin_emojis, anticache))
         print()
     print('Ningún contacto quedó marcado como enviado. Registra el estado con el modo normal si lo necesitas.')
 
 
 def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connection,
            limite: int | None, rafaga: bool, pausa: float, marcar: bool,
-           solo_enlaces: bool, sin_emojis: bool) -> int:
+           solo_enlaces: bool, sin_emojis: bool, anticache: bool) -> int:
     if errores:
         print('Corrige las incidencias antes de iniciar. Esto evita enviar a números o personas ambiguas.\n')
         resumen(contactos, errores, con)
@@ -277,7 +289,7 @@ def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connectio
         return 0
 
     if solo_enlaces:
-        enviar_solo_enlaces(pendientes, sin_emojis)
+        enviar_solo_enlaces(pendientes, sin_emojis, anticache)
         print('\nResumen:')
         resumen(contactos, [], con)
         return 0
@@ -285,15 +297,15 @@ def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connectio
     print(f'Hay {len(pendientes)} contactos pendientes. El programa NO pulsa Enviar por ti.')
     print('Primero inicia sesión en https://web.whatsapp.com/ con tu WhatsApp personal.')
     print('\nVista previa del primer mensaje:\n')
-    print(crear_mensaje(pendientes[0], sin_emojis))
+    print(crear_mensaje(pendientes[0], sin_emojis, anticache))
     if input('\n¿Comenzar? [s/N]: ').strip().lower() != 's':
         print('Cancelado sin cambios.')
         return 0
 
     if rafaga:
-        enviar_rafaga(pendientes, con, pausa, marcar, sin_emojis)
+        enviar_rafaga(pendientes, con, pausa, marcar, sin_emojis, anticache)
     else:
-        enviar_interactivo(pendientes, con, sin_emojis)
+        enviar_interactivo(pendientes, con, sin_emojis, anticache)
 
     print('\nResumen tras la sesión:')
     resumen(contactos, [], con)
@@ -329,6 +341,9 @@ def main() -> int:
                       help='Solo imprime todos los enlaces wa.me, sin abrir el navegador')
     send.add_argument('--sin-emojis', action='store_true',
                       help='Envía el mensaje sin emojis (útil si tu navegador los muestra mal)')
+    send.add_argument('--anticache', action='store_true',
+                      help='Agrega un ?v=<token> único por contacto para forzar que WhatsApp '
+                           'regenere la vista previa del enlace (tarjeta con imagen)')
     args = parser.parse_args()
     if args.accion == 'enviar':
         if args.limite is not None and args.limite <= 0:
@@ -358,7 +373,7 @@ def main() -> int:
         if args.accion == 'enviar':
             return enviar(contactos, errores, con, args.limite,
                           args.rafaga, args.pausa, args.marcar, args.solo_enlaces,
-                          args.sin_emojis)
+                          args.sin_emojis, args.anticache)
     return 0
 
 
