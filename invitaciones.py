@@ -156,7 +156,10 @@ def crear_mensaje(c: Invitado, sin_emojis: bool = False) -> str:
 
 
 def enlace(c: Invitado, sin_emojis: bool = False) -> str:
-    return f'https://wa.me/{c.telefono}?text={quote(crear_mensaje(c, sin_emojis), safe="")}'
+    # web.whatsapp.com/send va directo al chat y evita la página intermedia de wa.me
+    # ("Abrir aplicación / Continuar en WhatsApp Web").
+    texto = quote(crear_mensaje(c, sin_emojis), safe='')
+    return f'https://web.whatsapp.com/send?phone={c.telefono}&text={texto}'
 
 
 def abrir_en_linux(url: str) -> bool:

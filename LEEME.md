@@ -45,7 +45,7 @@ chmod +x iniciar.sh
 
 ### Modos de envío
 
-El comando `enviar` tiene tres modos. En todos, **WhatsApp requiere que tú pulses Enviar**; `wa.me` solo abre el chat con el texto precargado.
+El comando `enviar` tiene tres modos. En todos, **WhatsApp requiere que tú pulses Enviar**; el enlace (`web.whatsapp.com/send`) solo abre el chat con el texto precargado y va directo al chat sin la página intermedia de `wa.me`.
 
 - **Interactivo (por defecto)**: abre de uno en uno y te pregunta por cada contacto si lo enviaste. Máximo control.
   ```bash
@@ -56,7 +56,7 @@ El comando `enviar` tiene tres modos. En todos, **WhatsApp requiere que tú puls
   ./iniciar.sh enviar --rafaga --pausa 3
   ./iniciar.sh enviar --rafaga --pausa 3 --marcar
   ```
-- **Solo enlaces**: no abre nada; imprime todos los enlaces `wa.me` para que los abras como prefieras (copiar/pegar, otro script, etc.).
+- **Solo enlaces**: no abre nada; imprime todos los enlaces `web.whatsapp.com/send` para que los abras como prefieras (copiar/pegar, otro script, etc.).
   ```bash
   ./iniciar.sh enviar --solo-enlaces
   ```
@@ -108,7 +108,7 @@ Para cambiar el texto o la URL, edita `crear_mensaje` y la constante `FIESTA_URL
 
 ### Nota sobre emojis en Linux
 
-Si los emojis se ven como un rombo (`�`) dentro del chat de WhatsApp Web, casi siempre es un problema de **renderizado de tu navegador en Linux**, no del mensaje. El emoji viaja correcto en el enlace `wa.me` y **el destinatario lo verá bien en su celular**.
+Si los emojis se ven como un rombo (`�`) dentro del chat de WhatsApp Web, casi siempre es un problema de **renderizado de tu navegador en Linux**, no del mensaje. El emoji viaja correcto en el enlace y **el destinatario lo verá bien en su celular**.
 
 Comprobaciones por si quieres descartar causas locales:
 
@@ -128,7 +128,7 @@ Si prefieres no depender del renderizado, usa `--sin-emojis` para enviar una ver
 
 ## Limitaciones deliberadas
 
-- No envía automáticamente los mensajes. `wa.me` solo abre el chat con un texto precargado.
+- No envía automáticamente los mensajes. El enlace (`web.whatsapp.com/send`) solo abre el chat con un texto precargado.
 - No evita todos los riesgos asociados con mensajes repetidos; evita herramientas de automatización no oficiales y requiere una acción manual para cada envío.
 - No prueba si el número existe o tiene WhatsApp.
 - No interpreta respuestas ni confirma lectura o entrega.
