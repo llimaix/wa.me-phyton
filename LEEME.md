@@ -51,10 +51,10 @@ El comando `enviar` tiene tres modos. En todos, **WhatsApp requiere que tú puls
   ```bash
   ./iniciar.sh enviar --limite 10
   ```
-- **Ráfaga**: abre todos los chats de corrido con una pausa entre cada uno, sin preguntarte contacto por contacto. Tú solo vas pulsando Enviar en cada ventana que aparece. Con `--marcar` registra cada uno como ENVIADO al abrirlo.
+- **Ráfaga**: abre cada chat, muestra `Abriendo: ...`, espera el tiempo de `--pausa` para que pulses Enviar, y al cumplirse muestra `Enviado: ...`. Con `--marcar`, el contacto se registra en la bitácora **al completar la espera** (no al abrir). Si cancelas con `Ctrl+C` durante la espera de un contacto, ese contacto NO queda registrado, así no marcas como enviado algo que interrumpiste.
   ```bash
-  ./iniciar.sh enviar --rafaga --pausa 3
-  ./iniciar.sh enviar --rafaga --pausa 3 --marcar
+  ./iniciar.sh enviar --rafaga --pausa 30
+  ./iniciar.sh enviar --rafaga --pausa 30 --marcar
   ```
 - **Solo enlaces**: no abre nada; imprime todos los enlaces `web.whatsapp.com/send` para que los abras como prefieras (copiar/pegar, otro script, etc.).
   ```bash
@@ -66,7 +66,7 @@ Opciones:
 - `--limite N`: máximo de conversaciones a procesar.
 - `--rafaga`: abre todo de corrido sin confirmar uno por uno.
 - `--pausa S`: segundos entre cada chat en modo `--rafaga` (por defecto 3).
-- `--marcar`: en `--rafaga`, marca cada contacto como ENVIADO automáticamente al abrirlo.
+- `--marcar`: en `--rafaga`, marca cada contacto como ENVIADO al completar su espera. Si cancelas (Ctrl+C) durante la espera, ese contacto NO se registra y sigue pendiente. Esto evita reenviar al mismo número en la siguiente ejecución.
 - `--solo-enlaces`: imprime los enlaces sin abrir el navegador (incompatible con `--rafaga`).
 - `--sin-emojis`: envía el mensaje sin emojis (conserva negritas y saltos de línea). Útil si tu navegador de WhatsApp Web en Linux muestra los emojis como un rombo; el contenido es correcto, es solo cómo lo dibuja tu pantalla, pero esta opción evita la duda. Combinable con cualquier modo.
 - `--anticache`: agrega un parámetro `?v=<token>` único por contacto a la URL de la invitación. Fuerza a que WhatsApp regenere la vista previa del enlace (la tarjeta con la foto, fecha y lugar) en lugar de reutilizar una versión cacheada que a veces sale sin imagen. La página ignora el parámetro, así que el contenido es idéntico. Combinable con cualquier modo.

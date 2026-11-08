@@ -248,22 +248,33 @@ def enviar_interactivo(pendientes: list[Invitado], con: sqlite3.Connection,
 
 def enviar_rafaga(pendientes: list[Invitado], con: sqlite3.Connection,
                   pausa: float, marcar: bool, sin_emojis: bool, anticache: bool) -> None:
-    """Abre todos los chats de corrido con una pausa entre cada uno, sin confirmar
-    contacto por contacto. Tú solo pulsas Enviar en cada ventana que aparece."""
-    print(f'\nModo ráfaga: se abrirán {len(pendientes)} chats con {pausa}s de separación.')
-    print('Pulsa Enviar en cada ventana de WhatsApp a medida que se abren. Ctrl+C para detener.\n')
+    """Abre cada chat, espera la pausa parametrizada y luego lo da por enviado.
+    Si --marcar está activo, se registra en la bitácora SOLO al completar la espera
+    (no al abrir). Si cancelas con Ctrl+C durante la espera de un contacto, ese
+    contacto NO queda registrado, así no marcas como enviado algo que interrumpiste."""
+    print(f'\nModo ráfaga: se abrirá cada chat y se esperará {pausa}s antes del siguiente.')
+    if marcar:
+        print('Cada contacto se marcará como ENVIADO al completar la espera (--marcar).')
+    print('Pulsa Enviar en cada ventana de WhatsApp durante la espera. Ctrl+C para detener.\n')
+    registrados = 0
     for indice, c in enumerate(pendientes, start=1):
         print(f'[{indice}/{len(pendientes)}] Abriendo: {c.nombre} | +{c.telefono} | {c.pais}')
         abrir_en_linux(enlace(c, sin_emojis, anticache))
+        try:
+            time.sleep(pausa)
+        except KeyboardInterrupt:
+            print(f'\n[{indice}/{len(pendientes)}] Cancelado durante la espera: '
+                  f'{c.nombre} NO se registró como enviado.')
+            break
+        print(f'[{indice}/{len(pendientes)}] Enviado: {c.nombre} | +{c.telefono} | {c.pais}')
         if marcar:
             confirmar_envio(con, c)
-        if indice < len(pendientes):
-            time.sleep(pausa)
+            registrados += 1
     if marcar:
-        print('\nTodos los contactos se marcaron como ENVIADO automáticamente (--marcar).')
+        print(f'\n{registrados} contacto(s) registrados como ENVIADO tras completar su espera.')
     else:
         print('\nLos chats se abrieron pero NINGUNO quedó marcado como enviado.')
-        print('Usa --marcar si quieres registrarlos automáticamente, o confirma luego con el modo normal.')
+        print('Usa --marcar si quieres registrarlos automáticamente al completar la espera.')
 
 
 def enviar_solo_enlaces(pendientes: list[Invitado], sin_emojis: bool, anticache: bool) -> None:
