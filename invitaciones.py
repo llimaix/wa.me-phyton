@@ -9,6 +9,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -190,28 +191,18 @@ def confirmar_envio(con: sqlite3.Connection, c: Invitado) -> None:
     con.commit()
 
 
-def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connection,
-           limite: int | None) -> int:
-    if errores:
-        print('Corrige las incidencias antes de iniciar. Esto evita enviar a números o personas ambiguas.\n')
-        resumen(contactos, errores, con)
-        return 2
+def _pendientes(contactos: list[Invitado], con: sqlite3.Connection,
+                limite: int | None) -> list[Invitado]:
     sent = mensajes_enviados(con)
-    pendientes = [c for c in contactos if c.telefono not in sent]
-    if not pendientes:
-        print('No hay invitaciones pendientes.')
-        return 0
-    print(f'Hay {len(pendientes)} contactos pendientes. El programa NO pulsa Enviar por ti.')
-    print('Primero inicia sesión en https://web.whatsapp.com/ con tu WhatsApp personal.')
-    print('\nVista previa del primer mensaje:\n')
-    print(crear_mensaje(pendientes[0]))
-    if input('\n¿Comenzar? [s/N]: ').strip().lower() != 's':
-        print('Cancelado sin cambios.')
-        return 0
-    abiertos = 0
+    lista = [c for c in contactos if c.telefono not in sent]
+    if limite is not None:
+        lista = lista[:limite]
+    return lista
+
+
+def enviar_interactivo(pendientes: list[Invitado], con: sqlite3.Connection) -> None:
+    """Modo clásico: abre de uno en uno y confirma el envío de cada contacto."""
     for indice, c in enumerate(pendientes, start=1):
-        if limite is not None and abiertos >= limite:
-            break
         print(f'\n[{indice}/{len(pendientes)}] {c.nombre} | +{c.telefono} | {c.pais} | cupos: {c.cupos}')
         opcion = input('[Enter] Abrir mensaje | [o] omitir | [q] salir: ').strip().lower()
         if opcion == 'q':
@@ -219,7 +210,6 @@ def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connectio
         if opcion == 'o':
             continue
         abrir_en_linux(enlace(c))
-        abiertos += 1
         confirmacion = input('¿Pulsaste Enviar y viste el mensaje en WhatsApp? [s] sí | [n] no | [q] salir: ').strip().lower()
         if confirmacion == 's':
             confirmar_envio(con, c)
@@ -228,6 +218,69 @@ def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connectio
             break
         else:
             print('Permanece PENDIENTE. Verifica en WhatsApp antes de reintentarlo.')
+
+
+def enviar_rafaga(pendientes: list[Invitado], con: sqlite3.Connection,
+                  pausa: float, marcar: bool) -> None:
+    """Abre todos los chats de corrido con una pausa entre cada uno, sin confirmar
+    contacto por contacto. Tú solo pulsas Enviar en cada ventana que aparece."""
+    print(f'\nModo ráfaga: se abrirán {len(pendientes)} chats con {pausa}s de separación.')
+    print('Pulsa Enviar en cada ventana de WhatsApp a medida que se abren. Ctrl+C para detener.\n')
+    for indice, c in enumerate(pendientes, start=1):
+        print(f'[{indice}/{len(pendientes)}] Abriendo: {c.nombre} | +{c.telefono} | {c.pais}')
+        abrir_en_linux(enlace(c))
+        if marcar:
+            confirmar_envio(con, c)
+        if indice < len(pendientes):
+            time.sleep(pausa)
+    if marcar:
+        print('\nTodos los contactos se marcaron como ENVIADO automáticamente (--marcar).')
+    else:
+        print('\nLos chats se abrieron pero NINGUNO quedó marcado como enviado.')
+        print('Usa --marcar si quieres registrarlos automáticamente, o confirma luego con el modo normal.')
+
+
+def enviar_solo_enlaces(pendientes: list[Invitado]) -> None:
+    """Imprime todos los enlaces wa.me juntos para abrirlos como prefieras."""
+    print(f'\n{len(pendientes)} enlaces (uno por línea). Ábrelos en tu navegador:\n')
+    for c in pendientes:
+        print(f'# {c.nombre} | +{c.telefono} | {c.pais} | cupos: {c.cupos}')
+        print(enlace(c))
+        print()
+    print('Ningún contacto quedó marcado como enviado. Registra el estado con el modo normal si lo necesitas.')
+
+
+def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connection,
+           limite: int | None, rafaga: bool, pausa: float, marcar: bool,
+           solo_enlaces: bool) -> int:
+    if errores:
+        print('Corrige las incidencias antes de iniciar. Esto evita enviar a números o personas ambiguas.\n')
+        resumen(contactos, errores, con)
+        return 2
+    pendientes = _pendientes(contactos, con, limite)
+    if not pendientes:
+        print('No hay invitaciones pendientes.')
+        return 0
+
+    if solo_enlaces:
+        enviar_solo_enlaces(pendientes)
+        print('\nResumen:')
+        resumen(contactos, [], con)
+        return 0
+
+    print(f'Hay {len(pendientes)} contactos pendientes. El programa NO pulsa Enviar por ti.')
+    print('Primero inicia sesión en https://web.whatsapp.com/ con tu WhatsApp personal.')
+    print('\nVista previa del primer mensaje:\n')
+    print(crear_mensaje(pendientes[0]))
+    if input('\n¿Comenzar? [s/N]: ').strip().lower() != 's':
+        print('Cancelado sin cambios.')
+        return 0
+
+    if rafaga:
+        enviar_rafaga(pendientes, con, pausa, marcar)
+    else:
+        enviar_interactivo(pendientes, con)
+
     print('\nResumen tras la sesión:')
     resumen(contactos, [], con)
     return 0
@@ -250,11 +303,26 @@ def main() -> int:
     commands.add_parser('validar', help='Validar CSV y mostrar totales sin abrir WhatsApp')
     commands.add_parser('reporte', help='Mostrar estado actual')
     commands.add_parser('exportar', help='Crear reporte_envios.csv')
-    send = commands.add_parser('enviar', help='Abrir mensajes de uno en uno y confirmar el envío')
+    send = commands.add_parser('enviar', help='Abrir mensajes y registrar el envío')
     send.add_argument('--limite', type=int, default=None, help='Máximo de conversaciones a abrir')
+    send.add_argument('--rafaga', action='store_true',
+                      help='Abre todos los chats de corrido, sin confirmar contacto por contacto')
+    send.add_argument('--pausa', type=float, default=3.0,
+                      help='Segundos entre cada chat en modo --rafaga (por defecto 3)')
+    send.add_argument('--marcar', action='store_true',
+                      help='En --rafaga, marca cada contacto como ENVIADO automáticamente al abrirlo')
+    send.add_argument('--solo-enlaces', action='store_true',
+                      help='Solo imprime todos los enlaces wa.me, sin abrir el navegador')
     args = parser.parse_args()
-    if args.accion == 'enviar' and args.limite is not None and args.limite <= 0:
-        parser.error('--limite debe ser un entero positivo')
+    if args.accion == 'enviar':
+        if args.limite is not None and args.limite <= 0:
+            parser.error('--limite debe ser un entero positivo')
+        if args.pausa < 0:
+            parser.error('--pausa no puede ser negativa')
+        if args.marcar and not args.rafaga:
+            parser.error('--marcar solo aplica junto con --rafaga')
+        if args.solo_enlaces and args.rafaga:
+            parser.error('--solo-enlaces y --rafaga son mutuamente excluyentes')
     try:
         contactos, errores = leer_csv()
     except (FileNotFoundError, ValueError, UnicodeError, OSError) as exc:
@@ -272,7 +340,8 @@ def main() -> int:
             exportar(contactos, con)
             return 0
         if args.accion == 'enviar':
-            return enviar(contactos, errores, con, args.limite)
+            return enviar(contactos, errores, con, args.limite,
+                          args.rafaga, args.pausa, args.marcar, args.solo_enlaces)
     return 0
 
 

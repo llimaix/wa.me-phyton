@@ -43,21 +43,40 @@ chmod +x iniciar.sh
 ./iniciar.sh exportar
 ```
 
-El parámetro opcional `--con-cupos` incorpora la cantidad de personas al texto:
+### Modos de envío
 
-```bash
-./iniciar.sh enviar --limite 10 --con-cupos
-```
+El comando `enviar` tiene tres modos. En todos, **WhatsApp requiere que tú pulses Enviar**; `wa.me` solo abre el chat con el texto precargado.
 
-### Flujo de envío
+- **Interactivo (por defecto)**: abre de uno en uno y te pregunta por cada contacto si lo enviaste. Máximo control.
+  ```bash
+  ./iniciar.sh enviar --limite 10
+  ```
+- **Ráfaga**: abre todos los chats de corrido con una pausa entre cada uno, sin preguntarte contacto por contacto. Tú solo vas pulsando Enviar en cada ventana que aparece. Con `--marcar` registra cada uno como ENVIADO al abrirlo.
+  ```bash
+  ./iniciar.sh enviar --rafaga --pausa 3
+  ./iniciar.sh enviar --rafaga --pausa 3 --marcar
+  ```
+- **Solo enlaces**: no abre nada; imprime todos los enlaces `wa.me` para que los abras como prefieras (copiar/pegar, otro script, etc.).
+  ```bash
+  ./iniciar.sh enviar --solo-enlaces
+  ```
+
+Opciones:
+
+- `--limite N`: máximo de conversaciones a procesar.
+- `--rafaga`: abre todo de corrido sin confirmar uno por uno.
+- `--pausa S`: segundos entre cada chat en modo `--rafaga` (por defecto 3).
+- `--marcar`: en `--rafaga`, marca cada contacto como ENVIADO automáticamente al abrirlo.
+- `--solo-enlaces`: imprime los enlaces sin abrir el navegador (incompatible con `--rafaga`).
+
+### Flujo de envío recomendado
 
 1. Ejecuta `./iniciar.sh validar`; debe terminar **sin incidencias**.
 2. Inicia sesión en `https://web.whatsapp.com/` en tu navegador de Linux.
-3. Ejecuta `./iniciar.sh enviar --limite 10` para un lote pequeño.
-4. Se muestra la persona y se abre su conversación con el texto prellenado.
-5. **Tú pulsas Enviar** en WhatsApp. Después contestas `s` en la terminal para registrar el envío.
-6. Si no lo enviaste, contesta `n`: seguirá pendiente. Verifica el chat antes de volverlo a intentar, ya que la herramienta no puede consultar WhatsApp para comprobar el envío.
-7. Repite los lotes que quieras. Puedes interrumpir con `q` o Ctrl+C. El progreso confirmado se conserva.
+3. Prueba primero contigo: `./iniciar.sh enviar --limite 1`.
+4. Para enviar a todos de forma fluida: `./iniciar.sh enviar --rafaga --pausa 3`.
+5. **Tú pulsas Enviar** en cada ventana de WhatsApp. En modo interactivo confirmas con `s` en la terminal; en ráfaga usa `--marcar` si quieres registro automático.
+6. Puedes interrumpir con `q` (modo interactivo) o Ctrl+C. El progreso confirmado se conserva y al reanudar solo verás los pendientes.
 
 ### Archivos generados
 
@@ -68,18 +87,33 @@ No borres `progreso.sqlite3` si quieres conservar el historial de envíos. No su
 
 ## Mensaje
 
+El texto se arma en la función `crear_mensaje` de `invitaciones.py`. Usa formato de WhatsApp (`*texto*` para negrita) y emojis:
+
 ```text
-Hola, <Nombre>.
+🎉✨ *¡Tenemos una alegría muy especial que queremos compartir contigo!* ✨🎉
 
-Estás invitado a mi fiesta:
-https://rodolfo60s.isdomana.com/
+Con el corazón lleno de felicidad y gratitud a Dios, queremos celebrar una hermosa bendición: *¡los 60 años de vida de nuestro querido Edvin!* 🎂❤️
 
-Nota: Confirma tu asistencia respondiendo al número desde el que recibiste este mensaje.
+*Nos llenaría de alegría contar con tu presencia* para compartir juntos este día tan especial, lleno de sonrisas, cariño y hermosos recuerdos. 🥳
 
-Tu asistencia es muy importante para nosotros.
+💌 *Hemos preparado esta invitación especialmente para ti:*
+
+🔗 https://rodolfo60s.isdomana.com/
+
+*¡Te esperamos con mucho cariño para celebrar juntos esta gran bendición!* ❤️🎊
 ```
 
-Si se utiliza `--con-cupos`, se agrega la línea `Tu invitación contempla N persona(s).` antes de la nota.
+Para cambiar el texto o la URL, edita `crear_mensaje` y la constante `FIESTA_URL` en `invitaciones.py`.
+
+### Nota sobre emojis en Linux
+
+Si los emojis se ven como un rombo con signo de interrogación, es que a tu sistema Linux le falta una fuente de emojis a color. El mensaje se envía bien igualmente; es solo cómo lo muestra tu pantalla. Instálala con:
+
+```bash
+sudo apt install -y fonts-noto-color-emoji
+```
+
+Luego reinicia el navegador. El destinatario los verá correctamente aunque tú no.
 
 ## Limitaciones deliberadas
 
