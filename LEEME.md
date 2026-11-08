@@ -70,6 +70,18 @@ Opciones:
 - `--solo-enlaces`: imprime los enlaces sin abrir el navegador (incompatible con `--rafaga`).
 - `--sin-emojis`: envía el mensaje sin emojis (conserva negritas y saltos de línea). Útil si tu navegador de WhatsApp Web en Linux muestra los emojis como un rombo; el contenido es correcto, es solo cómo lo dibuja tu pantalla, pero esta opción evita la duda. Combinable con cualquier modo.
 - `--anticache`: agrega un parámetro `?v=<token>` único por contacto a la URL de la invitación. Fuerza a que WhatsApp regenere la vista previa del enlace (la tarjeta con la foto, fecha y lugar) en lugar de reutilizar una versión cacheada que a veces sale sin imagen. La página ignora el parámetro, así que el contenido es idéntico. Combinable con cualquier modo.
+- `--portapapeles`: en vez de abrir el chat con el texto precargado, copia el mensaje al portapapeles y abre el chat vacío. Así pegas con Ctrl+V, **esperas a que aparezca la tarjeta del enlace (con la foto)** y recién entonces pulsas Enviar. Es el modo con más control sobre la vista previa. Solo funciona en modo interactivo (no con `--rafaga` ni `--solo-enlaces`). Requiere una herramienta de portapapeles:
+  ```bash
+  sudo apt install -y wl-clipboard xclip
+  ```
+
+### Vista previa del enlace (tarjeta con imagen)
+
+WhatsApp decide por su cuenta si muestra la tarjeta rica (foto + fecha + lugar) o solo el dominio. Depende de si su rastreador alcanza a descargar la imagen a tiempo; no lo controla este script. Para que salga la tarjeta con foto de forma consistente:
+
+1. Pre-calienta la caché de WhatsApp con el [Sharing Debugger de Meta](https://developers.facebook.com/tools/debug/): pega la URL **limpia** (`https://rodolfo60s.isdomana.com/`) y pulsa "Scrape Again" hasta ver la imagen.
+2. Envía con la URL limpia (sin `--anticache`), o usa `--portapapeles` para esperar la tarjeta antes de enviar cada mensaje.
+3. Prueba con 1 contacto (tú mismo) antes de enviar a todos.
 
 ### Flujo de envío recomendado
 
