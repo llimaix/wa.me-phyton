@@ -153,7 +153,8 @@ def crear_mensaje(c: Invitado, sin_emojis: bool = False, anticache: bool = False
             'especial, lleno de sonrisas, cariño y hermosos recuerdos.\n\n'
             '*Hemos preparado esta invitación especialmente para ti:*\n\n'
             f'{url}\n\n'
-            '*¡Te esperamos con mucho cariño para celebrar juntos esta gran bendición!*'
+            '*¡Te esperamos con mucho cariño para celebrar juntos esta gran bendición!*\n\n'
+            '*Nota:* Fecha límite para confirmar 25 de noviembre.'
         )
     return (
         '🎉✨ *¡Tenemos una alegría muy especial que queremos compartir contigo!* ✨🎉\n\n'
@@ -163,7 +164,8 @@ def crear_mensaje(c: Invitado, sin_emojis: bool = False, anticache: bool = False
         'especial, lleno de sonrisas, cariño y hermosos recuerdos. 🥳\n\n'
         '💌 *Hemos preparado esta invitación especialmente para ti:*\n\n'
         f'🔗 {url}\n\n'
-        '*¡Te esperamos con mucho cariño para celebrar juntos esta gran bendición!* ❤️🎊'
+        '*¡Te esperamos con mucho cariño para celebrar juntos esta gran bendición!* ❤️🎊\n\n'
+        '📅 *Nota:* Fecha límite para confirmar 25 de noviembre.'
     )
 
 
