@@ -131,8 +131,19 @@ def mensajes_enviados(con: sqlite3.Connection) -> set[str]:
     return {x[0] for x in con.execute('SELECT telefono FROM enviados')}
 
 
-def crear_mensaje(c: Invitado) -> str:
-    texto = (
+def crear_mensaje(c: Invitado, sin_emojis: bool = False) -> str:
+    if sin_emojis:
+        return (
+            '*¡Tenemos una alegría muy especial que queremos compartir contigo!*\n\n'
+            'Con el corazón lleno de felicidad y gratitud a Dios, queremos celebrar una hermosa '
+            'bendición: *¡los 60 años de vida de nuestro querido Edvin!*\n\n'
+            '*Nos llenaría de alegría contar con tu presencia* para compartir juntos este día tan '
+            'especial, lleno de sonrisas, cariño y hermosos recuerdos.\n\n'
+            '*Hemos preparado esta invitación especialmente para ti:*\n\n'
+            f'{FIESTA_URL}\n\n'
+            '*¡Te esperamos con mucho cariño para celebrar juntos esta gran bendición!*'
+        )
+    return (
         '🎉✨ *¡Tenemos una alegría muy especial que queremos compartir contigo!* ✨🎉\n\n'
         'Con el corazón lleno de felicidad y gratitud a Dios, queremos celebrar una hermosa '
         'bendición: *¡los 60 años de vida de nuestro querido Edvin!* 🎂❤️\n\n'
@@ -142,11 +153,10 @@ def crear_mensaje(c: Invitado) -> str:
         f'🔗 {FIESTA_URL}\n\n'
         '*¡Te esperamos con mucho cariño para celebrar juntos esta gran bendición!* ❤️🎊'
     )
-    return texto
 
 
-def enlace(c: Invitado) -> str:
-    return f'https://wa.me/{c.telefono}?text={quote(crear_mensaje(c), safe="")}'
+def enlace(c: Invitado, sin_emojis: bool = False) -> str:
+    return f'https://wa.me/{c.telefono}?text={quote(crear_mensaje(c, sin_emojis), safe="")}'
 
 
 def abrir_en_linux(url: str) -> bool:
@@ -200,7 +210,8 @@ def _pendientes(contactos: list[Invitado], con: sqlite3.Connection,
     return lista
 
 
-def enviar_interactivo(pendientes: list[Invitado], con: sqlite3.Connection) -> None:
+def enviar_interactivo(pendientes: list[Invitado], con: sqlite3.Connection,
+                       sin_emojis: bool) -> None:
     """Modo clásico: abre de uno en uno y confirma el envío de cada contacto."""
     for indice, c in enumerate(pendientes, start=1):
         print(f'\n[{indice}/{len(pendientes)}] {c.nombre} | +{c.telefono} | {c.pais} | cupos: {c.cupos}')
@@ -209,7 +220,7 @@ def enviar_interactivo(pendientes: list[Invitado], con: sqlite3.Connection) -> N
             break
         if opcion == 'o':
             continue
-        abrir_en_linux(enlace(c))
+        abrir_en_linux(enlace(c, sin_emojis))
         confirmacion = input('¿Pulsaste Enviar y viste el mensaje en WhatsApp? [s] sí | [n] no | [q] salir: ').strip().lower()
         if confirmacion == 's':
             confirmar_envio(con, c)
@@ -221,14 +232,14 @@ def enviar_interactivo(pendientes: list[Invitado], con: sqlite3.Connection) -> N
 
 
 def enviar_rafaga(pendientes: list[Invitado], con: sqlite3.Connection,
-                  pausa: float, marcar: bool) -> None:
+                  pausa: float, marcar: bool, sin_emojis: bool) -> None:
     """Abre todos los chats de corrido con una pausa entre cada uno, sin confirmar
     contacto por contacto. Tú solo pulsas Enviar en cada ventana que aparece."""
     print(f'\nModo ráfaga: se abrirán {len(pendientes)} chats con {pausa}s de separación.')
     print('Pulsa Enviar en cada ventana de WhatsApp a medida que se abren. Ctrl+C para detener.\n')
     for indice, c in enumerate(pendientes, start=1):
         print(f'[{indice}/{len(pendientes)}] Abriendo: {c.nombre} | +{c.telefono} | {c.pais}')
-        abrir_en_linux(enlace(c))
+        abrir_en_linux(enlace(c, sin_emojis))
         if marcar:
             confirmar_envio(con, c)
         if indice < len(pendientes):
@@ -240,19 +251,19 @@ def enviar_rafaga(pendientes: list[Invitado], con: sqlite3.Connection,
         print('Usa --marcar si quieres registrarlos automáticamente, o confirma luego con el modo normal.')
 
 
-def enviar_solo_enlaces(pendientes: list[Invitado]) -> None:
+def enviar_solo_enlaces(pendientes: list[Invitado], sin_emojis: bool) -> None:
     """Imprime todos los enlaces wa.me juntos para abrirlos como prefieras."""
     print(f'\n{len(pendientes)} enlaces (uno por línea). Ábrelos en tu navegador:\n')
     for c in pendientes:
         print(f'# {c.nombre} | +{c.telefono} | {c.pais} | cupos: {c.cupos}')
-        print(enlace(c))
+        print(enlace(c, sin_emojis))
         print()
     print('Ningún contacto quedó marcado como enviado. Registra el estado con el modo normal si lo necesitas.')
 
 
 def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connection,
            limite: int | None, rafaga: bool, pausa: float, marcar: bool,
-           solo_enlaces: bool) -> int:
+           solo_enlaces: bool, sin_emojis: bool) -> int:
     if errores:
         print('Corrige las incidencias antes de iniciar. Esto evita enviar a números o personas ambiguas.\n')
         resumen(contactos, errores, con)
@@ -263,7 +274,7 @@ def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connectio
         return 0
 
     if solo_enlaces:
-        enviar_solo_enlaces(pendientes)
+        enviar_solo_enlaces(pendientes, sin_emojis)
         print('\nResumen:')
         resumen(contactos, [], con)
         return 0
@@ -271,15 +282,15 @@ def enviar(contactos: list[Invitado], errores: list[str], con: sqlite3.Connectio
     print(f'Hay {len(pendientes)} contactos pendientes. El programa NO pulsa Enviar por ti.')
     print('Primero inicia sesión en https://web.whatsapp.com/ con tu WhatsApp personal.')
     print('\nVista previa del primer mensaje:\n')
-    print(crear_mensaje(pendientes[0]))
+    print(crear_mensaje(pendientes[0], sin_emojis))
     if input('\n¿Comenzar? [s/N]: ').strip().lower() != 's':
         print('Cancelado sin cambios.')
         return 0
 
     if rafaga:
-        enviar_rafaga(pendientes, con, pausa, marcar)
+        enviar_rafaga(pendientes, con, pausa, marcar, sin_emojis)
     else:
-        enviar_interactivo(pendientes, con)
+        enviar_interactivo(pendientes, con, sin_emojis)
 
     print('\nResumen tras la sesión:')
     resumen(contactos, [], con)
@@ -313,6 +324,8 @@ def main() -> int:
                       help='En --rafaga, marca cada contacto como ENVIADO automáticamente al abrirlo')
     send.add_argument('--solo-enlaces', action='store_true',
                       help='Solo imprime todos los enlaces wa.me, sin abrir el navegador')
+    send.add_argument('--sin-emojis', action='store_true',
+                      help='Envía el mensaje sin emojis (útil si tu navegador los muestra mal)')
     args = parser.parse_args()
     if args.accion == 'enviar':
         if args.limite is not None and args.limite <= 0:
@@ -341,7 +354,8 @@ def main() -> int:
             return 0
         if args.accion == 'enviar':
             return enviar(contactos, errores, con, args.limite,
-                          args.rafaga, args.pausa, args.marcar, args.solo_enlaces)
+                          args.rafaga, args.pausa, args.marcar, args.solo_enlaces,
+                          args.sin_emojis)
     return 0
 
 

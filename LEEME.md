@@ -68,6 +68,7 @@ Opciones:
 - `--pausa S`: segundos entre cada chat en modo `--rafaga` (por defecto 3).
 - `--marcar`: en `--rafaga`, marca cada contacto como ENVIADO automáticamente al abrirlo.
 - `--solo-enlaces`: imprime los enlaces sin abrir el navegador (incompatible con `--rafaga`).
+- `--sin-emojis`: envía el mensaje sin emojis (conserva negritas y saltos de línea). Útil si tu navegador de WhatsApp Web en Linux muestra los emojis como un rombo; el contenido es correcto, es solo cómo lo dibuja tu pantalla, pero esta opción evita la duda. Combinable con cualquier modo.
 
 ### Flujo de envío recomendado
 
@@ -107,13 +108,23 @@ Para cambiar el texto o la URL, edita `crear_mensaje` y la constante `FIESTA_URL
 
 ### Nota sobre emojis en Linux
 
-Si los emojis se ven como un rombo con signo de interrogación, es que a tu sistema Linux le falta una fuente de emojis a color. El mensaje se envía bien igualmente; es solo cómo lo muestra tu pantalla. Instálala con:
+Si los emojis se ven como un rombo (`�`) dentro del chat de WhatsApp Web, casi siempre es un problema de **renderizado de tu navegador en Linux**, no del mensaje. El emoji viaja correcto en el enlace `wa.me` y **el destinatario lo verá bien en su celular**.
 
-```bash
-sudo apt install -y fonts-noto-color-emoji
-```
+Comprobaciones por si quieres descartar causas locales:
 
-Luego reinicia el navegador. El destinatario los verá correctamente aunque tú no.
+1. El locale debe ser UTF-8. Verifica con `locale` que no haya advertencias; si falta, genéralo:
+   ```bash
+   sudo locale-gen es_GT.UTF-8 && sudo update-locale LANG=es_GT.UTF-8
+   ```
+2. Instala una fuente de emojis a color y reinicia el navegador:
+   ```bash
+   sudo apt install -y fonts-noto-color-emoji && fc-cache -f
+   ```
+3. Prueba en otro navegador (Chromium suele renderizar emojis sin configuración extra).
+
+La prueba definitiva: mándate la invitación a tu propio número y ábrela en el **celular**. Si ahí se ve bien, no hay nada que arreglar.
+
+Si prefieres no depender del renderizado, usa `--sin-emojis` para enviar una versión sin emojis (conserva negritas y saltos de línea).
 
 ## Limitaciones deliberadas
 
